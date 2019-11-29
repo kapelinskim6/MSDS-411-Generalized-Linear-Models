@@ -1,0 +1,337 @@
+-*- R -*-
+# Mike Kapelinski
+# Predict 411-57
+# Moneyball Analysis
+
+
+library(rJava)
+library(readr)
+library(pbkrtest)
+library(car)
+library(leaps)
+library(MASS)
+library(pastecs)
+library(corrplot)
+library(xlsx)
+library(rpart)
+
+path.name <- 'C:\\Users\\mike\\Desktop\\Predict_411\\MoneyBall\\';
+file.name <- paste(path.name, 'moneyball.csv',sep='');
+moneyball.df <- read.csv(file.name, header=TRUE);
+
+############## Part 1: Data Exploration ##########################################################################
+str(moneyball.df)
+summary(moneyball.df)
+
+# Check # of rows and columns 
+nrow(moneyball.df)
+ncol(moneyball.df)
+
+# Check column names of data frame
+names(moneyball.df)
+
+# print first few rows 
+head(moneyball.df)
+
+# Summary statistics
+summary(moneyball.df$INDEX)
+summary(moneyball.df$TARGET_WINS)
+summary(moneyball.df$TEAM_BATTING_H)
+summary(moneyball.df$TEAM_BATTING_2B)
+summary(moneyball.df$TEAM_BATTING_3B)
+summary(moneyball.df$TEAM_BATTING_HR)
+summary(moneyball.df$TEAM_BATTING_BB)
+summary(moneyball.df$TEAM_BATTING_SO)
+summary(moneyball.df$TEAM_BASERUN_SB)
+summary(moneyball.df$TEAM_BASERUN_CS)
+summary(moneyball.df$TEAM_BATTING_HBP)
+summary(moneyball.df$TEAM_PITCHING_H)
+summary(moneyball.df$TEAM_PITCHING_HR)
+summary(moneyball.df$TEAM_PITCHING_BB)
+summary(moneyball.df$TEAM_PITCHING_SO)
+summary(moneyball.df$TEAM_FIELDING_DP)
+summary(moneyball.df$TEAM_FIELDING_E)
+
+
+# Compute correlation matrix for Target_wins;
+moneyball.cor <- cor(moneyball.df)
+table(moneyball.cor)
+moneyball.cor[,c('TARGET_WINS')]
+
+corrplot(moneyball.cor)
+
+# Wins - Use lower bound for lower outliers, upper bound for higher outliers.
+par(mfrow=c(1,2))
+hist(moneyball.df$TARGET_WINS, col = "darkgreen", xlab = "TARGET_WINS", main = "Histogram of Wins")
+boxplot(moneyball.df$TARGET_WINS, col = "darkgreen", main = "Boxplot of Wins")
+par(mfrow = c(1,1))
+
+################# Batting ####################
+# Hits and Doubles
+par(mfrow=c(2,2))
+hist(moneyball.df$TEAM_BATTING_H, col = "#A71930", xlab = "Team_Batting_H", main = "Histogram of Hits")
+hist(moneyball.df$TEAM_BATTING_2B, col = "#09ADAD", xlab = "Doubles", main = "Histogram of Doubles")
+boxplot(moneyball.df$TEAM_BATTING_H, col = "#A71930", main = "Boxplot of Hits")
+boxplot(moneyball.df$TEAM_BATTING_2B, col = "#09ADAD", main = "Boxplot of Doubles")
+par(mfrow=c(1,1))
+
+plot(moneyball.df$TEAM_BATTING_2B,  moneyball.df$TARGET_WINS)
+plot(moneyball.df$TEAM_BATTING_H,  moneyball.df$TARGET_WINS)
+
+# Triples and Home Runs
+par(mfrow=c(2,2))
+hist(moneyball.df$TEAM_BATTING_3B, col = "red", xlab = "Triples", main = "Histogram of Triples")
+hist(moneyball.df$TEAM_BATTING_HR, col = "blue", xlab = "Home Runs", main = "Histogram of Home Runs")
+boxplot(moneyball.df$TEAM_BATTING_3B, col = "red", main = "Boxplot of Triples")
+boxplot(moneyball.df$TEAM_BATTING_HR, col = "blue", main = "Boxplot of Home Runs")
+par(mfrow=c(1,1))
+
+plot(log(moneyball.df$TEAM_BATTING_3B),  moneyball.df$TARGET_WINS)
+plot(moneyball.df$TEAM_BATTING_HR,  moneyball.df$TARGET_WINS)
+
+# Walks, Strikeouts, HBP
+par(mfrow=c(2,3))
+hist(moneyball.df$TEAM_BATTING_BB, col = "#A71930", xlab = "Walks", main = "Histogram of Walks")
+hist(moneyball.df$TEAM_BATTING_SO, col = "#09ADAD", xlab = "Strikeouts", main = "Histogram of Strikeouts")
+hist(moneyball.df$TEAM_BATTING_HBP, col = "#DBCEAC", xlab = "Hit By Pitches", main = "Histogram of HBP")
+boxplot(moneyball.df$TEAM_BATTING_BB, col = "#A71930", main = "Boxplot of Walks")
+boxplot(moneyball.df$TEAM_BATTING_SO, col = "#09ADAD", main = "Boxplot of Strikeouts")
+boxplot(moneyball.df$TEAM_BATTING_HBP, col = "#DBCEAC", main = "Boxplot of HBP")
+par(mfrow=c(1,1))
+
+plot(moneyball.df$TEAM_BATTING_BB,  moneyball.df$TARGET_WINS)
+plot(moneyball.df$TEAM_BATTING_SO,  moneyball.df$TARGET_WINS)
+
+# Stolen Bases and Caught Stealing
+par(mfrow=c(2,2))
+hist(moneyball.df$TEAM_BASERUN_SB, col = "#A71930", xlab = "Stolen Bases", main = "Histogram of Steals")
+hist(moneyball.df$TEAM_BASERUN_CS, col = "#DBCEAC", xlab = "Caught Stealing", main = "Histogram of CS")
+boxplot(moneyball.df$TEAM_BASERUN_SB, col = "#A71930", main = "Boxplot of Steals")
+boxplot(moneyball.df$TEAM_BASERUN_CS, col = "#DBCEAC", main = "Boxplot of CS")
+par(mfrow=c(1,1))
+
+plot(log(moneyball.df$TEAM_BASERUN_SB),  moneyball.df$TARGET_WINS)
+plot(log(moneyball.df$TEAM_BASERUN_CS),  moneyball.df$TARGET_WINS)
+
+################ Pitching ############
+# Hits and Home Runs
+par(mfrow=c(2,2))
+hist(moneyball.df$TEAM_PITCHING_H, col = "#A71930", xlab = "Hits Against", main = "Histogram of Hits Against")
+hist(moneyball.df$TEAM_PITCHING_HR, col = "#09ADAD", xlab = "Home Runs Against", main = "Histograms of HR Against")
+boxplot(moneyball.df$TEAM_PITCHING_H, col = "#A71930", main = "Boxplot of Hits Against")
+boxplot(moneyball.df$TEAM_PITCHING_HR, col = "#09ADAD", main = "Boxplot of HR Against")
+par(mfrow=c(1,1))
+
+
+plot(moneyball.df$TEAM_PITCHING_H,  moneyball.df$TARGET_WINS)
+plot(sqrt(moneyball.df$TEAM_PITCHING_HR),  moneyball.df$TARGET_WINS)
+
+# Walks and Strikeouts
+par(mfrow=c(2,2))
+hist(moneyball.df$TEAM_PITCHING_BB, col = "#A71930", xlab = "Walks Allowed", main = "Histogram of Walks Allowed")
+hist(moneyball.df$TEAM_PITCHING_SO, col = "#DBCEAC", xlab = "Strikeouts", main = "Histograms of Strikeouts")
+boxplot(moneyball.df$TEAM_PITCHING_BB, col = "#A71930", main = "Boxplot of Walks Allowed")
+boxplot(moneyball.df$TEAM_PITCHING_SO, col = "#DBCEAC", main = "Boxplot of Strikeouts")
+par(mfrow=c(1,1))
+
+plot(moneyball.df$TEAM_PITCHING_BB,  moneyball.df$TARGET_WINS)
+plot(log(moneyball.df$TEAM_PITCHING_SO),  moneyball.df$TARGET_WINS)
+
+
+############## Fielding ###########
+# Double Plays and Errors 
+par(mfrow=c(2,2))
+hist(moneyball.df$TEAM_FIELDING_DP, col = "#A71930", xlab = "Double Plays", main = "Histogram of Double Plays")
+hist(moneyball.df$TEAM_FIELDING_E, col = "#09ADAD", xlab = "Errors Committed", main = "Histogram of Errors Committed")
+boxplot(moneyball.df$TEAM_FIELDING_DP, col = "#A71930", main = "Boxplot of Double Plays")
+boxplot(moneyball.df$TEAM_FIELDING_E, col = "#09ADAD", main = "Boxplot of Errors Committed")
+par(mfrow=c(1,1))
+
+plot(moneyball.df$TEAM_FIELDING_DP,  moneyball.df$TARGET_WINS)
+plot(log(moneyball.df$TEAM_FIELDING_E),  moneyball.df$TARGET_WINS)
+
+######## Scatterplot Matrix ##########
+
+panel.cor <- function(x,y, digits=2, prefix="", cex.cor)
+{
+  usr <- par("usr"); on.exit(par(usr))
+  par(usr = c(0, 1, 0, 1))
+  r <- abs(cor(x, y))
+  txt <- format(c(r, 0.123456789), digits=digits)[1]
+  txt <- paste(prefix, txt, sep="")
+  if(missing(cex.cor)) cex.cor <- 0.8/strwidth(txt)
+  text(0.5, 0.5, txt, cex = cex.cor * r)
+}
+
+# Batting Stats and Wins
+pairs(moneyball.df[2:8], lower.panel=panel.smooth, upper.panel = panel.cor)
+
+#Baserunning  Stats and Wins
+pairs(~ moneyball.df$TARGET_WINS + moneyball.df$TEAM_BASERUN_CS + moneyball.df$TEAM_BASERUN_SB, lower.panel = panel.smooth)
+
+#Pitcher Stats and Wins
+pairs(~ moneyball.df$TARGET_WINS + moneyball.df$TEAM_PITCHING_BB + moneyball.df$TEAM_PITCHING_H + 
+        moneyball.df$TEAM_PITCHING_HR + moneyball.df$TEAM_PITCHING_SO, lower.panel = panel.smooth)
+
+pairs(moneyball[2,9,10,11,12,13])
+
+######################### Part 2: Data Preparation #####################
+
+#Fix Missing Values Using Median of All Seasons
+moneyball.df$TEAM_BATTING_SO[is.na(moneyball.df$TEAM_BATTING_SO)] = median(moneyball.df$TEAM_BATTING_SO, na.rm = TRUE)
+moneyball.df$TEAM_BASERUN_SB[is.na(moneyball.df$TEAM_BASERUN_SB)] = median(moneyball.df$TEAM_BASERUN_SB, na.rm = TRUE)
+moneyball.df$TEAM_BASERUN_CS[is.na(moneyball.df$TEAM_BASERUN_CS)] = median(moneyball.df$TEAM_BASERUN_CS, na.rm = TRUE)
+moneyball.df$TEAM_FIELDING_DP[is.na(moneyball.df$TEAM_FIELDING_DP)] = median(moneyball.df$TEAM_FIELDING_DP, na.rm = TRUE)
+moneyball.df$TEAM_PITCHING_SO[is.na(moneyball.df$TEAM_PITCHING_SO)] = median(moneyball.df$TEAM_PITCHING_SO, na.rm = TRUE)
+moneyball.df$TEAM_PITCHING_BB[is.na(moneyball.df$TEAM_PITCHING_BB)] = median(moneyball.df$TEAM_PITCHING_BB, na.rm = TRUE)
+
+# Drop Team_Batting_HBP
+moneyball.df$TEAM_BATTING_HBP = NULL
+
+# New variable creation
+moneyball.df$TEAM_BATTING_1B <- moneyball.df$TEAM_BATTING_H - moneyball.df$TEAM_BATTING_HR - moneyball.df$TEAM_BATTING_3B - moneyball.df$TEAM_BATTING_2B
+moneyball.df$STRIKEOUT_RATIO = with(moneyball.df, TEAM_PITCHING_SO / TEAM_PITCHING_BB)
+moneyball.df$TOTAL_BASES = with(moneyball.df, TEAM_BATTING_1B + 2 * TEAM_BATTING_2B + 3 * TEAM_BATTING_3B + 4 * TEAM_BATTING_HR)
+moneyball.df$WALK_RATIO = with(moneyball.df, TEAM_BATTING_BB / TEAM_BATTING_SO)
+moneyball.df$SB_PCT <- moneyball.df$TEAM_BASERUN_SB/(1.0*moneyball.df$TEAM_BASERUN_SB+moneyball.df$TEAM_BASERUN_CS)
+moneyball.df$sqrt_TEAM_PITCHING_HR <- sqrt(moneyball.df$TEAM_PITCHING_HR)
+
+#Straighten Relationships
+moneyball.df$log_TEAM_BATTING_1B <- log(moneyball.df$TEAM_BATTING_1B)
+moneyball.df$log_TEAM_BATTING_3B <- log(moneyball.df$TEAM_BATTING_3B)
+moneyball.df$log_TEAM_BASERUN_SB <- log(moneyball.df$TEAM_BASERUN_SB)
+moneyball.df$log_TEAM_BASERUN_CS <- log(moneyball.df$TEAM_BASERUN_CS)
+moneyball.df$TEAM_FIELDING_E[(moneyball.df$TEAM_FIELDING_E > 500)] = 500
+moneyball.df$TEAM_BASERUN_CS[(moneyball.df$TEAM_BASERUN_CS > 100)] = 100
+moneyball.df$TEAM_BASERUN_SB[(moneyball.df$TEAM_BASERUN_CS > 350)] = 350
+
+C = cor(moneyball2)
+C_TW = C[,"TARGET_WINS"]
+sort(C_TW, decreasing = TRUE )
+
+#Check that na's are gone. 
+summary(moneyball.df)
+
+#Remove bad data from data set
+moneyball.df = moneyball.df[moneyball.df$TEAM_PITCHING_SO > 0,]
+moneyball.df = moneyball.df[moneyball.df$log_TEAM_BATTING_3B > 0,]
+moneyball.df = moneyball.df[moneyball.df$log_TEAM_BASERUN_SB > 0,]
+moneyball2 <- subset(moneyball.df, TARGET_WINS >= 21 & TARGET_WINS <= 120)
+moneyball2 <- subset(moneyball2, TEAM_PITCHING_H < 2000)
+
+summary(moneyball2)
+#################### Part 3: Model Creation ############################################
+
+#Function for Mean Square Error Calculation
+mse <- function(sm) 
+mean(sm$residuals^2)
+
+# Stepwise Full model 
+upper.lm <- lm(TARGET_WINS ~ .,data=moneyball2);
+
+SLR_model <- lm(TARGET_WINS ~ TEAM_BATTING_H  ,data=moneyball2);
+summary(SLR_model)
+
+stepwise_model <- stepAIC(object=SLR_model,scope=list(upper=formula(upper.lm),lower=~1),
+                       direction=c('both'));
+vif(stepwise_model)
+summary(stepwise_model)
+mse(stepwise_model)
+
+par(mfrow=c(2,2))
+plot(stepwise_model)
+
+# Correlation Model
+cor_model <- lm(formula = TARGET_WINS ~   TEAM_FIELDING_E + TEAM_BATTING_1B + TEAM_BASERUN_SB + 
+                   TEAM_BATTING_3B  + TEAM_BASERUN_CS + TEAM_BATTING_BB + TEAM_FIELDING_DP + TEAM_PITCHING_SO +
+                    TEAM_BATTING_HR, data = moneyball2)
+par(mfrow=c(2,2))
+plot(cor_model)
+summary(cor_model)
+vif(cor_model)
+sqrt(vif(cor_model)) > 2
+mse(cor_model)
+
+par(mfrow=c(2,2))
+plot(cor_model)
+
+# Refined model 
+Refine_model<- lm(formula = TARGET_WINS ~ TEAM_BATTING_1B + TEAM_BATTING_2B + TEAM_BATTING_3B + TEAM_BATTING_HR + 
+                      TEAM_BATTING_H + SB_PCT + 
+                      TEAM_BATTING_BB + TEAM_BATTING_SO + TEAM_BASERUN_SB + TEAM_BASERUN_CS + 
+                      TEAM_PITCHING_BB  + TEAM_FIELDING_E + TEAM_FIELDING_DP, data = moneyball2)
+Refine <- stepAIC(Refine_model, direction = "both")
+summary(Refine)
+vif(Refine)
+sqrt(vif(Refine)) > 2
+
+
+par(mfrow=c(2,2))
+plot(Refine_model)
+######## Performance #######
+AIC(stepwisemodel)
+AIC(cor_model)
+AIC(Refine)
+BIC(stepwisemodel)
+BIC(cor_model)
+BIC(Refine)
+mse(stepwisemodel)
+mse(cor_model)
+mse(Refine)
+
+
+#####
+#Designated proper working environment on my computer. You will want to make sure it is in proper place for your computer.
+#####
+
+#################### Test Data ##########################
+path.name <- 'C:\\Users\\mike\\Desktop\\Predict_411\\MoneyBall\\';
+file.name <- paste(path.name, 'moneyball_test.csv',sep='');
+moneyball_test <- read.csv(file.name, header=TRUE);
+
+str(moneyball_test)
+# Fixing na's
+moneyball_test$TEAM_BATTING_1B <- moneyball_test$TEAM_BATTING_H - moneyball_test$TEAM_BATTING_HR -
+  moneyball_test$TEAM_BATTING_3B -moneyball_test$TEAM_BATTING_2B
+moneyball_test$TEAM_BATTING_SO[is.na(moneyball_test$TEAM_BATTING_SO)] = median(moneyball_test$TEAM_BATTING_SO, na.rm = TRUE)
+moneyball_test$TEAM_BATTING_HBP[is.na(moneyball_test$TEAM_BATTING_HBP)] = median(moneyball_test$TEAM_BATTING_HBP, na.rm = TRUE)
+moneyball_test$TEAM_BASERUN_SB[is.na(moneyball_test$TEAM_BASERUN_SB)] = median(moneyball_test$TEAM_BASERUN_SB, na.rm = TRUE)
+moneyball_test$TEAM_BASERUN_CS[is.na(moneyball_test$TEAM_BASERUN_CS)] = median(moneyball_test$TEAM_BASERUN_CS, na.rm = TRUE)
+moneyball_test$TEAM_FIELDING_DP[is.na(moneyball_test$TEAM_FIELDING_DP)] = median(moneyball_test$TEAM_FIELDING_DP, na.rm = TRUE)
+moneyball_test$TEAM_PITCHING_SO[is.na(moneyball_test$TEAM_PITCHING_SO)] = median(moneyball_test$TEAM_PITCHING_SO, na.rm = TRUE)
+moneyball_test$TEAM_BATTING_SO[moneyball_test$TEAM_BATTING_SO < 1] =  median(moneyball_test$TEAM_BATTING_SO)
+moneyball_test$TEAM_BATTING_HR[moneyball_test$TEAM_BATTING_HR < 1] =  median(moneyball_test$TEAM_BATTING_HR)
+moneyball_test$TEAM_BASERUN_SB[moneyball_test$TEAM_BASERUN_SB < 1] =  median(moneyball_test$TEAM_BASERUN_SB)
+moneyball_test$SB_PCT <- moneyball_test$TEAM_BASERUN_SB/(1.0*moneyball_test$TEAM_BASERUN_SB+moneyball_test$TEAM_BASERUN_CS)
+moneyball_test$SB_PCT[is.na(moneyball_test$SB_PCT)] = mean(moneyball_test$SB_PCT)
+moneyball_test$log_TEAM_BASERUN_CS <- log(moneyball_test$TEAM_BASERUN_CS)
+moneyball_test$STRIKEOUT_RATIO = with(moneyball_test, TEAM_PITCHING_SO / TEAM_PITCHING_BB)
+moneyball_test$TOTAL_BASES = with(moneyball_test, TEAM_BATTING_1B + 2 * TEAM_BATTING_2B + 3 * TEAM_BATTING_3B + 4 * TEAM_BATTING_HR)
+moneyball_test$WALK_RATIO = with(moneyball_test, TEAM_BATTING_BB / TEAM_BATTING_SO)
+moneyball_test$SB_PCT <- moneyball_test$TEAM_BASERUN_SB/(1.0*moneyball_test$TEAM_BASERUN_SB+moneyball_test$TEAM_BASERUN_CS)
+
+
+
+# Stand Alone Scoring
+moneyball_test$P_TARGET_WINS <-53.759124 + 0.034054 * moneyball_test$TEAM_BATTING_1B -
+  0.012216* moneyball_test$TEAM_BATTING_2B + 
+  0.191592* moneyball_test$TEAM_BATTING_3B +
+  0.107535* moneyball_test$TEAM_BATTING_HR +
+  0.029045* moneyball_test$TEAM_BATTING_BB -
+  0.016107* moneyball_test$TEAM_BATTING_SO + 
+  0.084573* moneyball_test$TEAM_BASERUN_SB - 
+  0.096386* moneyball_test$TEAM_FIELDING_E - 
+  0.115686* moneyball_test$TEAM_FIELDING_DP -
+  0.098484* moneyball_test$TEAM_BASERUN_CS +
+ 
+
+#subset of data set for the deliverable "Scored data file"
+prediction <- moneyball_test[c("INDEX","P_TARGET_WINS")]
+
+#####
+#Note, this next function will output an Excel file in your work environment called write.xlsx.
+#####
+
+#Prediction File 
+write.xlsx(prediction, file = "C:\\Users\\mike\\Desktop\\Predict_411\\MoneyBall\\prediction.xlsx",
+           sheetName = "Predictions", col.names = TRUE)
