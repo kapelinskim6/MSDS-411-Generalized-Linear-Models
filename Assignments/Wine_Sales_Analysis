@@ -1,0 +1,592 @@
+-*- R -*-
+# Mike Kapelinski
+# Predict 411-57
+# Wine Sales Analysis
+
+
+#call libraries
+library(ggplot2) # For graphical tools
+library(MASS) # For some advanced statistics
+library(pscl) # For "counting" models (e.g., Poisson and Negative Binomial)
+library(dplyr) # For general needs and functions
+library(readr)
+library(corrplot)
+library(zoo)
+library(psych)
+library(ROCR)
+library(car)
+library(InformationValue)
+library(rJava)
+library(pbkrtest)
+library(car)
+library(leaps)
+library(glm2)
+library(aod)
+library(pastecs)
+
+#Read File in from your working directory
+path.name <- 'C:\\Users\\mike\\Desktop\\Predict_411\\WineSales\\';
+file.name <- paste(path.name, 'Wine_Training.csv',sep='');
+wine <- read.csv(file.name, header=TRUE);
+
+#take a look at the high level characteristics of the wine data
+
+summary(wine)
+str(wine)
+summary(wine)
+describe(wine)
+c <- cor(wine_clean)
+corrplot(c, method = "square")
+sort(wine$TARGET, decreasing = TRUE)
+wine.cor <- cor(wine)
+table(wine.cor)
+wine.cor[,c('TARGET')]
+
+
+str(wine$TARGET)
+
+#examine the target variable
+ggplot(data=wine, aes(wine$TARGET)) + 
+  geom_histogram(binwidth =1, 
+                 col="BLUE", 
+                 aes(fill=..count..))+
+  scale_fill_gradient("Count", low = "blue", high = "red")
+
+wine_clean <- na.omit(wine)
+cor(wine_clean[sapply(wine_clean, is.numeric)])
+
+
+# DATA Exploration
+par(mfrow=c(2,2))
+hist(wine$LabelAppeal, col = "darkred", xlab = "LabelAppeal", main = "LabelAppeal Hist")
+hist(wine$STARS, col = "darkgreen", xlab = "STARS", main = "STARS Hist")
+boxplot(wine$LabelAppeal, col = "darkred", main = "LabelAppeal BoxPlot")
+boxplot(wine$STARS, col = "darkgreen", main = "STARS Boxplot")
+par(mfrow=c(1,1))
+
+par(mfrow=c(2,2))
+hist(wine$TARGET, col = "darkred", xlab = "TARGET", main = "TARGET Hist")
+hist(wine$Alcohol, col = "darkgreen", xlab = "ALCOHOL", main = "Alcohol Hist")
+boxplot(wine$TARGET, col = "darkred", main = "TARGET BoxPlot")
+boxplot(wine$Alcohol, col = "darkgreen", main = "Alcohol Boxplot")
+par(mfrow=c(1,1))
+
+par(mfrow=c(2,2))
+hist(wine$Density, col = "darkred", xlab = "Density", main = "Density Hist")
+hist(wine$pH, col = "darkgreen", xlab = "pH", main = "pH Hist")
+boxplot(wine$Density, col = "darkred", main = "Density BoxPlot")
+boxplot(wine$pH, col = "darkgreen", main = "pH Boxplot")
+par(mfrow=c(1,1))
+
+par(mfrow=c(2,2))
+hist(wine$AcidIndex, col = "darkred", xlab = "Acid Index", main = "AcidIndex Hist")
+hist(wine$VolatileAcidity, col = "darkgreen", xlab = "Volatile Acidity", main = "VolatileAcidity Hist")
+boxplot(wine$AcidIndex, col = "darkred", main = "AcidIndex BoxPlot")
+boxplot(wine$VolatileAcidity, col = "darkgreen", main = "VolatileAcidity Boxplot")
+par(mfrow=c(1,1))
+
+reg<-lm(TARGET ~ LabelAppeal, data = wine)
+coeff=coefficients(reg)
+abline(reg, col="blue")
+
+reg1<-lm(TARGET ~ STARS, data = wine)
+coeff=coefficients(reg)
+abline(reg1, col="blue")
+
+par(mfrow=c(1,2))
+plot(wine$LabelAppeal, wine$TARGET, col = "darkred", xlab = "Label Appeal", ylab = "Target", main = "LabelAppeal Plot vs. Target Plot")
+abline(reg, col="blue")
+plot(wine$STARS, wine$TARGET, col = "darkred", xlab = "STARS", ylab = "Target", main = " STARS vs.Target Plot")
+abline(reg1, col="blue")
+par(mfrow=c(1,1))
+
+##################DATA CLEANING###########################################################
+stat.desc(wine)
+wine_clean <- na.omit(wine)
+quantile(wine_clean$pH, probs = c(0.01, 0.25, 0.5, 0.75, 0.95, 0.99))
+quantile(wine_clean$AcidIndex, probs = c(0.01, 0.25, 0.5, 0.75, 0.95, 0.99))
+quantile(wine_clean$Alcohol, probs = c(0.01, 0.25, 0.5, 0.75, 0.95, 0.99))
+quantile(wine_clean$Chlorides, probs = c(0.01, 0.25, 0.5, 0.75, 0.95, 0.99))
+quantile(wine_clean$CitricAcid, probs = c(0.01, 0.25, 0.5, 0.75, 0.95, 0.99))
+quantile(wine_clean$Density, probs = c(0.01, 0.25, 0.5, 0.75, 0.95, 0.99))
+quantile(wine_clean$FixedAcidity, probs = c(0.01, 0.25, 0.5, 0.75, 0.95, 0.99))
+quantile(wine_clean$FreeSulfurDioxide, probs = c(0.01, 0.25, 0.5, 0.75, 0.95, 0.99))
+quantile(wine_clean$LabelAppeal, probs = c(0.01, 0.25, 0.5, 0.75, 0.95, 0.99))
+quantile(wine_clean$ResidualSugar, probs = c(0.01, 0.25, 0.5, 0.75, 0.95, 0.99))
+quantile(wine_clean$STARS, probs = c(0.01, 0.25, 0.5, 0.75, 0.95, 0.99))
+quantile(wine_clean$Sulphates, probs = c(0.01, 0.25, 0.5, 0.75, 0.95, 0.99))
+quantile(wine_clean$TotalSulfurDioxide, probs = c(0.01, 0.25, 0.5, 0.75, 0.95, 0.99))
+quantile(wine_clean$VolatileAcidity, probs = c(0.01, 0.25, 0.5, 0.75, 0.95, 0.99))
+
+summary(wine_clean$pH)
+
+# Truncation of Outliers 
+wine$pH[(wine$pH > 4.4)] = 4.4
+wine$pH[(wine$pH < 1.3)] = 1.3
+
+wine$Density[(wine$Density > 1.03)] = 1.03
+wine$Density[(wine$Density < 0.95)] = 0.95
+
+wine$AcidIndex[(wine$AcidIndex > 12)] = 12
+wine$AcidIndex[(wine$AcidIndex < 6)] = 6
+
+wine$Alcohol = abs(wine$Alcohol)
+wine$Alcohol[(wine$Alcohol < 1.7)] = 1.7
+wine$Alcohol[(wine$Alcohol > 20.5)] = 20.5
+
+wine$Chlorides = abs(wine$Chlorides)
+wine$Chlorides[(wine$Chlorides > 1.05)] = 1.05
+wine$Chlorides[(wine$Chlorides < 0.01)] = 0.01
+
+wine$CitricAcid = abs(wine$CitricAcid)
+wine$CitricAcid[(wine$CitricAcid > 2.7)] = 2.7
+wine$CitricAcid[(wine$CitricAcid < 0.01)] = 0.01
+
+wine$FixedAcidity = abs(wine$FixedAcidity)
+wine$FixedAcidity[(wine$FixedAcidity > 24.2)] = 24.2
+wine$FixedAcidity[(wine$FixedAcidity < 0.2)] = 0.2
+
+wine$FreeSulfurDioxide = abs(wine$FreeSulfurDioxide)
+wine$FreeSulfurDioxide[(wine$FreeSulfurDioxide < 4)] = 4
+wine$FreeSulfurDioxide[(wine$FreeSulfurDioxide > 500)] = 500
+
+wine$ResidualSugar = abs(wine$ResidualSugar)
+wine$ResidualSugar[(wine$ResidualSugar > 114)] = 114
+wine$ResidualSugar[(wine$ResidualSugar < 0.9)] = 0.9       
+summary(wine$Sulphates)
+wine$Sulphates = abs(wine$Sulphates)
+wine$Sulphates[(wine$Sulphates > 3.1)] = 3.1
+wine$Sulphates[(wine$Sulphates < 0.3)] = 0.3
+
+wine$TotalSulfurDioxide = abs(wine$TotalSulfurDioxide)
+wine$TotalSulfurDioxide[(wine$TotalSulfurDioxide > 766)] = 766
+wine$TotalSulfurDioxide[(wine$TotalSulfurDioxide < 0)] = 9
+
+wine$VolatileAcidity = abs(wine$VolatileAcidity)
+wine$VolatileAcidity[(wine$VolatileAcidity > 2.0)] = 2.0
+
+#creat IMP versions of each independent variable
+wine$FixedAcidity_IMP <- wine$FixedAcidity
+wine$VolatileAcidity_IMP <- wine$VolatileAcidity
+wine$CitricAcid_IMP <- wine$CitricAcid
+wine$ResidualSugar_IMP <- wine$ResidualSugar
+wine$Chlorides_IMP <- wine$Chlorides
+wine$FreeSulfurDioxide_IMP <- wine$FreeSulfurDioxide
+wine$TotalSulfurDioxide_IMP <- wine$TotalSulfurDioxide
+wine$Density_IMP <- wine$Density
+wine$pH_IMP <- wine$pH
+wine$Sulphates_IMP <- wine$Sulphates
+wine$Alcohol_IMP <- wine$Alcohol
+wine$LabelAppeal_IMP <- wine$LabelAppeal
+wine$AcidIndex_IMP <- wine$AcidIndex
+wine$STARS_IMP <- wine$STARS
+
+#replace NA's in each column with median
+wine$FixedAcidity_IMP[which(is.na(wine$FixedAcidity_IMP))] <- median(wine$FixedAcidity_IMP,na.rm = TRUE)
+wine$VolatileAcidity_IMP[which(is.na(wine$VolatileAcidity_IMP))] <- median(wine$VolatileAcidity_IMP,na.rm = TRUE)
+wine$CitricAcid_IMP[which(is.na(wine$CitricAcid_IMP))] <- median(wine$CitricAcid_IMP,na.rm = TRUE)
+wine$ResidualSugar_IMP[which(is.na(wine$ResidualSugar_IMP))] <- median(wine$ResidualSugar_IMP,na.rm = TRUE)
+wine$Chlorides_IMP[which(is.na(wine$Chlorides_IMP))] <- median(wine$Chlorides_IMP,na.rm = TRUE)
+wine$FreeSulfurDioxide_IMP[which(is.na(wine$FreeSulfurDioxide_IMP))] <- median(wine$FreeSulfurDioxide_IMP,na.rm = TRUE)
+wine$TotalSulfurDioxide_IMP[which(is.na(wine$TotalSulfurDioxide_IMP))] <- median(wine$TotalSulfurDioxide_IMP,na.rm = TRUE)
+wine$Density_IMP[which(is.na(wine$Density_IMP))] <- median(wine$Density_IMP,na.rm = TRUE)
+wine$pH_IMP[which(is.na(wine$pH_IMP))] <- median(wine$pH_IMP,na.rm = TRUE)
+wine$Sulphates_IMP[which(is.na(wine$Sulphates_IMP))] <- median(wine$Sulphates_IMP,na.rm = TRUE)
+wine$Alcohol_IMP[which(is.na(wine$Alcohol_IMP))] <- median(wine$Alcohol_IMP,na.rm = TRUE)
+wine$LabelAppeal_IMP[which(is.na(wine$LabelAppeal_IMP))] <- median(wine$LabelAppeal_IMP,na.rm = TRUE)
+wine$AcidIndex_IMP[which(is.na(wine$AcidIndex_IMP))] <- median(wine$AcidIndex_IMP,na.rm = TRUE)
+wine$STARS_IMP[which(is.na(wine$STARS_IMP))] <-median(wine$STARS_IMP,na.rm = TRUE)
+
+#flag NA values with new field
+#first, create new field
+#second, replace NA's with 1 else 0
+
+wine$ResidualSugar_IMP_Flag <- wine$ResidualSugar
+wine$Chlorides_IMP_Flag <- wine$Chlorides
+wine$FreeSulfurDioxide_IMP_Flag <- wine$FreeSulfurDioxide
+wine$TotalSulfurDioxide_IMP_Flag <- wine$TotalSulfurDioxide
+wine$pH_IMP_Flag <- wine$pH
+wine$Sulphates_IMP_Flag <- wine$Sulphates
+wine$Alcohol_IMP_Flag <- wine$Alcohol
+wine$STARS_IMP_Flag <- wine$STARS
+
+
+#NEW BINARY FIELDS TO SHOW na's
+wine$ResidualSugar_IMP_Flag <- ifelse(is.na(wine$ResidualSugar_IMP_Flag)==TRUE, 1,0) 
+wine$Chlorides_IMP_Flag <- ifelse(is.na(wine$Chlorides_IMP_Flag)==TRUE, 1,0)
+wine$FreeSulfurDioxide_IMP_Flag <- ifelse(is.na(wine$FreeSulfurDioxide_IMP_Flag)==TRUE, 1,0)
+wine$TotalSulfurDioxide_IMP_Flag <- ifelse(is.na(wine$TotalSulfurDioxide_IMP_Flag)==TRUE, 1,0)
+wine$pH_IMP_Flag <- ifelse(is.na(wine$pH_IMP_Flag)==TRUE, 1,0)
+wine$Sulphates_IMP_Flag <- ifelse(is.na(wine$Sulphates_IMP_Flag)==TRUE, 1,0)
+wine$Alcohol_IMP_Flag <- ifelse(is.na(wine$Alcohol_IMP_Flag)==TRUE, 1,0)
+wine$STARS_IMP_Flag <- ifelse(is.na(wine$STARS_IMP_Flag)==TRUE, 1,0) #LOOK FOR MISSING STAR OBSERVATIONS
+
+
+#wine$STARS_IMP = as.factor(wine$STARS_IMP)
+#wine$LabelAppeal_IMP = as.factor(wine$LabelAppeal_IMP)
+#wine$AcidIndex_IMP = as.factor(wine$AcidIndex_IMP)
+
+#str(wine$STARS_IMP)
+#str(wine$LabelAppeal_IMP)
+#str(wine$AcidIndex_IMP)
+
+summary(wine)
+#Is it possible to distinguish red vs white wines by the chemical property makeup?
+plot(wine$VolatileAcidity_IMP)
+
+#A better way to visualize volatile acidity
+ggplot(data=wine, aes(wine$VolatileAcidity_IMP)) + 
+  geom_histogram(binwidth =1, 
+                 col="BLUE", 
+                 aes(fill=..count..))+
+  scale_fill_gradient("Count", low = "blue", high = "red")
+
+summary(wine$VolatileAcidity_IMP)
+
+#make new indicator that indicates red vs white based on volatile acidity
+wine$VolatileAcidity_IMP_REDFLAG <- ifelse(wine$VolatileAcidity_IMP > mean(wine$VolatileAcidity_IMP),1,0)
+wine$ResidualSugar_IMP_REDFLAG <- ifelse(wine$ResidualSugar_IMP < mean(wine$ResidualSugar_IMP),1,0)
+wine$TotalSulfurDioxide_IMP_REDFLAG <- ifelse(wine$TotalSulfurDioxide_IMP < mean(wine$TotalSulfurDioxide_IMP),1,0)
+wine$Density_IMP_REDFLAG <- ifelse(wine$Density_IMP > mean(wine$Density_IMP),1,0)
+wine$TallyUp <- wine$VolatileAcidity_IMP_REDFLAG + wine$ResidualSugar_IMP_REDFLAG + wine$TotalSulfurDioxide_IMP_REDFLAG + wine$Density_IMP_REDFLAG
+wine$Final_REDFLAG <- ifelse(wine$TallyUp > mean(wine$TallyUp),1,0)
+
+pairs(wine[,c("Final_REDFLAG","VolatileAcidity_IMP")])
+
+plot( wine$VolatileAcidity_IMP,wine$TARGET)
+
+#Add Target Flag for 0 sale scenarios
+wine$TARGET_Flag <- ifelse(wine$TARGET >0,1,0)
+wine$TARGET_AMT <- wine$TARGET - 1
+wine$TARGET_AMT <- ifelse(wine$TARGET_Flag == 0,NA,wine$TARGET-1)
+
+#######################################################
+#######################################################
+## FIRST MODEL ... REGULAR LINEAR REGRESSION MODEL#####
+lin <- subset(wine, select = c(TARGET, VolatileAcidity_IMP,  CitricAcid_IMP, TallyUp ,STARS_IMP_Flag, LabelAppeal_IMP, STARS_IMP, Alcohol_IMP, Final_REDFLAG,
+                  TotalSulfurDioxide_IMP, Density_IMP, Chlorides_IMP, pH_IMP, FixedAcidity_IMP, FreeSulfurDioxide_IMP,  AcidIndex_IMP, ResidualSugar_IMP, 
+                  Density_IMP_REDFLAG, TotalSulfurDioxide_IMP_REDFLAG, ResidualSugar_IMP_REDFLAG, VolatileAcidity_IMP_REDFLAG, pH_IMP_Flag,
+                  Alcohol_IMP_Flag, Sulphates_IMP_Flag, Final_REDFLAG, TotalSulfurDioxide_IMP_Flag, FreeSulfurDioxide_IMP_Flag, Chlorides_IMP_Flag, ResidualSugar_IMP_Flag,
+                  Sulphates_IMP, na.rm = TRUE))
+
+
+lm_fit <- lm(TARGET ~ STARS_IMP +  STARS_IMP_Flag + Density_IMP  + VolatileAcidity_IMP + CitricAcid_IMP + TotalSulfurDioxide_IMP + Alcohol_IMP + pH_IMP
+        + ResidualSugar_IMP + FixedAcidity_IMP + Chlorides_IMP + LabelAppeal_IMP + FreeSulfurDioxide_IMP + Sulphates_IMP +
+        + AcidIndex_IMP, data=wine)
+
+summary(lm_fit)
+coefficients(lm_fit)
+vif(lm_fit)
+wine$fittedLM <-fitted(lm_fit)
+AIC(lm_fit)
+
+##########################################################################################
+##########################################################################################
+## SECOND MODEL ... REGULAR LINEAR REGRESSION MODEL USING STEPWISE VARIABLE SELECTION (AIC)
+##########################################################################################
+mse <- function(sm) 
+  mean(sm$residuals^2)
+
+stepwise_lm <- lm(TARGET ~ ., data = lin)
+steplin = stepAIC(stepwise_lm, direction = 'backward')
+
+lm_fit_stepwise$anova
+
+
+lm_fit_stepwise <- lm(TARGET~  STARS_IMP + STARS_IMP_Flag  + CitricAcid_IMP + Density_IMP + TotalSulfurDioxide_IMP_REDFLAG + 
+                         Alcohol_IMP + VolatileAcidity_IMP + LabelAppeal_IMP+
+                        TotalSulfurDioxide_IMP + Density_IMP_REDFLAG + Chlorides_IMP + pH_IMP +  
+                        AcidIndex_IMP,  data=wine)
+
+summary(lm_fit_stepwise)
+coefficients(lm_fit_stepwise)
+wine$fittedLMStepwise <-fitted(lm_fit_stepwise)
+summary(wine$fittedLMStepwise)
+mse(lm_fit_stepwise)^2
+vif(lm_fit_stepwise)
+AIC(lm_fit_stepwise)
+
+##########################################################################################
+##########################################################################################
+## THIRD MODEL ... POISSON################################################################
+##########################################################################################
+pois <- subset(wine, select = c(TARGET, VolatileAcidity_IMP, TallyUp,  STARS_IMP_Flag, LabelAppeal_IMP, STARS_IMP, Alcohol_IMP, Final_REDFLAG,
+                               TotalSulfurDioxide_IMP, Density_IMP,   FixedAcidity_IMP,  AcidIndex_IMP,  
+                               Density_IMP_REDFLAG, TotalSulfurDioxide_IMP_REDFLAG, ResidualSugar_IMP_REDFLAG, VolatileAcidity_IMP_REDFLAG, pH_IMP_Flag,
+                               Alcohol_IMP_Flag, Sulphates_IMP_Flag, TotalSulfurDioxide_IMP_Flag, FreeSulfurDioxide_IMP_Flag, Chlorides_IMP_Flag, ResidualSugar_IMP_Flag,
+                                na.rm = TRUE))
+
+
+base_poiss = glm(TARGET ~ ., family ='poisson' , data = pois)
+poiss.back = stepAIC(base_poiss, direction = 'backward')
+summary(poiss.back)
+
+poisson_model <- glm(TARGET ~ FixedAcidity_IMP  + STARS_IMP + STARS_IMP_Flag + ResidualSugar_IMP + LabelAppeal_IMP
+                        + CitricAcid_IMP +FreeSulfurDioxide_IMP + Alcohol_IMP + Sulphates_IMP+
+                       TotalSulfurDioxide_IMP + Density_IMP, Chlorides_IMP + pH_IMP + FreeSulfurDioxide_IMP + 
+                       AcidIndex_IMP + ResidualSugar_IMP, family="poisson"(link="log"), data=wine)
+
+summary(poisson_model)
+coef(poisson_model)
+
+wine$poisson_yhat <- predict(poiss.back, newdata = wine, type = "response")
+summary(wine$poisson_yhat) 
+AIC(poiss.back)
+
+##########################################################################################
+##########################################################################################
+## FOURTH MODEL ... NEGATIVE BINOMIAL DISTRIBUTION########################################
+##########################################################################################
+
+NBR_Model<-glm.nb(TARGET ~  STARS_IMP + STARS_IMP_Flag + LabelAppeal_IMP + Density_IMP +
+                    Alcohol_IMP + TotalSulfurDioxide_IMP + VolatileAcidity_IMP +
+                    TotalSulfurDioxide_IMP_REDFLAG + Density_IMP_REDFLAG + 
+                    AcidIndex_IMP, data=wine)
+
+summary(NBR_Model)
+
+wine$NBRphat <- predict(NBR_Model, newdata = wine, type = "response")
+summary(wine$NBRphat)
+AIC(NBR_Model)
+summary(wine$TARGET)
+##########################################################################################
+##########################################################################################
+## FIFTH MODEL ... ZERO INFLATED POISSON (ZIP)############################################
+##########################################################################################
+
+ZIP_Model<-zeroinfl(TARGET ~ STARS_IMP + STARS_IMP_Flag + LabelAppeal_IMP + Density_IMP +
+                      Alcohol_IMP + TotalSulfurDioxide_IMP + VolatileAcidity_IMP +
+                      TotalSulfurDioxide_IMP_REDFLAG + Density_IMP_REDFLAG + 
+                      AcidIndex_IMP, data=wine)
+
+summary(ZIP_Model)
+
+wine$ZIPphat <- predict(ZIP_Model, newdata = wine, type = "response")
+summary(wine$ZIPphat)
+AIC(ZIP_Model)
+BIC(ZIP_Model)
+##########################################################################################
+##########################################################################################
+## 6TH MODEL ... ZERO INFLATED NEGATIVE BINOMIAL REGRESSION (ZINB)########################
+##########################################################################################
+
+ZINB_Model<-zeroinfl(TARGET ~ STARS_IMP + STARS_IMP_Flag + LabelAppeal_IMP + Density_IMP +
+                       Alcohol_IMP + TotalSulfurDioxide_IMP + VolatileAcidity_IMP +
+                       TotalSulfurDioxide_IMP_REDFLAG + Density_IMP_REDFLAG + 
+                       AcidIndex_IMP, data=wine, dist = "negbin", EM=TRUE)
+summary(ZINB_Model)
+
+wine$ZINBphat <- predict(ZINB_Model, newdata = wine, type = "response")
+summary(wine$ZIPphat)
+AIC(ZINB_Model)
+BIC(ZINB_Model)
+#what type of dispersion does sample have?
+mean(wine$TARGET)
+var(wine$TARGET)
+
+BIC(lm_fit_stepwise)
+BIC(poiss.back)
+BIC(NBR_Model)
+BIC(ZIP_Model)
+BIC(ZINB_Model)
+print(-2*logLik(poiss.back, REML = TRUE))
+print(-2*logLik(NBR_Model, REML = TRUE))
+print(-2*logLik(ZIP_Model, REML = TRUE))
+print(-2*logLik(ZINB_Model, REML = TRUE))
+ks_stat(actuals=wine$TARGET, predictedScores=wine$poisson_yhat)
+ks_stat(actuals=wine$TARGET, predictedScores=wine$NBRphat )
+ks_stat(actuals=wine$TARGET, predictedScores=wine$ZIPphat)
+ks_stat(actuals=wine$TARGET, predictedScores=wine$ZINBphat)
+###################################################################################################################
+###################################################################################################################
+###################################################################################################################
+###################################################################################################################
+###################################################################################################################
+# Everything below could be a "stand alone" scoring program, in its separate file
+
+#Read File in from your working directory
+#wine = read.csv("WINE.csv")  # read csv file
+path.name <- 'C:\\Users\\mike\\Desktop\\Predict_411\\WineSales\\';
+file.name <- paste(path.name, 'Wine_Test.csv',sep='');
+wine_test <- read.csv(file.name, header=TRUE); # read csv file
+
+#call libraries
+library(ggplot2)
+library(MASS)
+library(pscl)
+library(dplyr)
+
+wine_test$INDEX <- as.factor(wine_test$INDEX)
+wine_test$TARGET <- as.factor(wine_test$TARGET)
+
+#creat IMP versions of each independent variable (wine)
+wine$FixedAcidity_IMP <- wine$FixedAcidity
+wine$VolatileAcidity_IMP <- wine$VolatileAcidity
+wine$CitricAcid_IMP <- wine$CitricAcid
+wine$ResidualSugar_IMP <- wine$ResidualSugar
+wine$Chlorides_IMP <- wine$Chlorides
+wine$FreeSulfurDioxide_IMP <- wine$FreeSulfurDioxide
+wine$TotalSulfurDioxide_IMP <- wine$TotalSulfurDioxide
+wine$Density_IMP <- wine$Density
+wine$pH_IMP <- wine$pH
+wine$Sulphates_IMP <- wine$Sulphates
+wine$Alcohol_IMP <- wine$Alcohol
+wine$LabelAppeal_IMP <- wine$LabelAppeal
+wine$AcidIndex_IMP <- wine$AcidIndex
+wine$STARS_IMP <- wine$STARS
+
+#creat IMP versions of each independent variable (wine_test)
+wine_test$FixedAcidity_IMP <- wine_test$FixedAcidity
+wine_test$VolatileAcidity_IMP <- wine_test$VolatileAcidity
+wine_test$CitricAcid_IMP <- wine_test$CitricAcid
+wine_test$ResidualSugar_IMP <- wine_test$ResidualSugar
+wine_test$Chlorides_IMP <- wine_test$Chlorides
+wine_test$FreeSulfurDioxide_IMP <- wine_test$FreeSulfurDioxide
+wine_test$TotalSulfurDioxide_IMP <- wine_test$TotalSulfurDioxide
+wine_test$Density_IMP <- wine_test$Density
+wine_test$pH_IMP <- wine_test$pH
+wine_test$Sulphates_IMP <- wine_test$Sulphates
+wine_test$Alcohol_IMP <- wine_test$Alcohol
+wine_test$LabelAppeal_IMP <- wine_test$LabelAppeal
+wine_test$AcidIndex_IMP <- wine_test$AcidIndex
+wine_test$STARS_IMP <- wine_test$STARS
+
+#replace NA's in each column with median since regression approach is not showing any value (wine)
+wine$FixedAcidity_IMP[which(is.na(wine$FixedAcidity_IMP))] <- median(wine$FixedAcidity_IMP,na.rm = TRUE)
+wine$VolatileAcidity_IMP[which(is.na(wine$VolatileAcidity_IMP))] <- median(wine$VolatileAcidity_IMP,na.rm = TRUE)
+wine$CitricAcid_IMP[which(is.na(wine$CitricAcid_IMP))] <- median(wine$CitricAcid_IMP,na.rm = TRUE)
+wine$ResidualSugar_IMP[which(is.na(wine$ResidualSugar_IMP))] <- median(wine$ResidualSugar_IMP,na.rm = TRUE)
+wine$Chlorides_IMP[which(is.na(wine$Chlorides_IMP))] <- median(wine$Chlorides_IMP,na.rm = TRUE)
+wine$FreeSulfurDioxide_IMP[which(is.na(wine$FreeSulfurDioxide_IMP))] <- median(wine$FreeSulfurDioxide_IMP,na.rm = TRUE)
+wine$TotalSulfurDioxide_IMP[which(is.na(wine$TotalSulfurDioxide_IMP))] <- median(wine$TotalSulfurDioxide_IMP,na.rm = TRUE)
+wine$Density_IMP[which(is.na(wine$Density_IMP))] <- median(wine$Density_IMP,na.rm = TRUE)
+wine$pH_IMP[which(is.na(wine$pH_IMP))] <- median(wine$pH_IMP,na.rm = TRUE)
+wine$Sulphates_IMP[which(is.na(wine$Sulphates_IMP))] <- median(wine$Sulphates_IMP,na.rm = TRUE)
+wine$Alcohol_IMP[which(is.na(wine$Alcohol_IMP))] <- median(wine$Alcohol_IMP,na.rm = TRUE)
+wine$LabelAppeal_IMP[which(is.na(wine$LabelAppeal_IMP))] <- median(wine$LabelAppeal_IMP,na.rm = TRUE)
+wine$AcidIndex_IMP[which(is.na(wine$AcidIndex_IMP))] <- median(wine$AcidIndex_IMP,na.rm = TRUE)
+wine$STARS_IMP[which(is.na(wine$STARS_IMP))] <-median(wine$STARS_IMP,na.rm = TRUE)
+
+
+wine_test$Alcohol = abs(wine_test$Alcohol)
+wine_test$Chlorides = abs(wine_test$Chlorides)
+wine_test$CitricAcid = abs(wine_test$CitricAcid)
+wine_test$FixedAcidity = abs(wine_test$FixedAcidity)
+wine_test$FreeSulfurDioxide = abs(wine_test$FreeSulfurDioxide)
+wine_test$ResidualSugar = abs(wine_test$ResidualSugar)
+wine_test$Sulphates = abs(wine_test$Sulphates)
+wine_test$TotalSulfurDioxide = abs(wine_test$TotalSulfurDioxide)
+wine_test$VolatileAcidity = abs(wine_test$VolatileAcidity)
+
+#replace NA's in each column with median since regression approach is not showing any value (wine_test)
+wine_test$FixedAcidity_IMP[which(is.na(wine_test$FixedAcidity_IMP))] <- median(wine_test$FixedAcidity_IMP,na.rm = TRUE)
+wine_test$VolatileAcidity_IMP[which(is.na(wine_test$VolatileAcidity_IMP))] <- mean(wine_test$VolatileAcidity_IMP,na.rm = TRUE)
+wine_test$CitricAcid_IMP[which(is.na(wine_test$CitricAcid_IMP))] <- median(wine_test$CitricAcid_IMP,na.rm = TRUE)
+wine_test$ResidualSugar_IMP[which(is.na(wine_test$ResidualSugar_IMP))] <- median(wine_test$ResidualSugar_IMP,na.rm = TRUE)
+wine_test$Chlorides_IMP[which(is.na(wine_test$Chlorides_IMP))] <- median(wine_test$Chlorides_IMP,na.rm = TRUE)
+wine_test$FreeSulfurDioxide_IMP[which(is.na(wine_test$FreeSulfurDioxide_IMP))] <- median(wine_test$FreeSulfurDioxide_IMP,na.rm = TRUE)
+wine_test$TotalSulfurDioxide_IMP[which(is.na(wine_test$TotalSulfurDioxide_IMP))] <- median(wine_test$TotalSulfurDioxide_IMP,na.rm = TRUE)
+wine_test$Density_IMP[which(is.na(wine_test$Density_IMP))] <- median(wine_test$Density_IMP,na.rm = TRUE)
+wine_test$pH_IMP[which(is.na(wine_test$pH_IMP))] <- median(wine_test$pH_IMP,na.rm = TRUE)
+wine_test$Sulphates_IMP[which(is.na(wine_test$Sulphates_IMP))] <- median(wine_test$Sulphates_IMP,na.rm = TRUE)
+wine_test$Alcohol_IMP[which(is.na(wine_test$Alcohol_IMP))] <- median(wine_test$Alcohol_IMP,na.rm = TRUE)
+wine_test$LabelAppeal_IMP[which(is.na(wine_test$LabelAppeal_IMP))] <- median(wine_test$LabelAppeal_IMP,na.rm = TRUE)
+wine_test$AcidIndex_IMP[which(is.na(wine_test$AcidIndex_IMP))] <- median(wine_test$AcidIndex_IMP,na.rm = TRUE)
+wine_test$STARS_IMP[which(is.na(wine_test$STARS_IMP))] <- median(wine_test$STARS_IMP,na.rm = TRUE)
+
+#flag NA values with new field...first, create new field...second, replace NA's with 1 else 0 (wine)
+wine$ResidualSugar_IMP_Flag <- wine$ResidualSugar
+wine$Chlorides_IMP_Flag <- wine$Chlorides
+wine$FreeSulfurDioxide_IMP_Flag <- wine$FreeSulfurDioxide
+wine$TotalSulfurDioxide_IMP_Flag <- wine$TotalSulfurDioxide
+wine$pH_IMP_Flag <- wine$pH
+wine$Sulphates_IMP_Flag <- wine$Sulphates
+wine$Alcohol_IMP_Flag <- wine$Alcohol
+wine$STARS_IMP_Flag <- wine$STARS
+
+
+#flag NA values with new field...first, create new field...second, replace NA's with 1 else 0 (wine_test)
+wine_test$ResidualSugar_IMP_Flag <- wine_test$ResidualSugar
+wine_test$Chlorides_IMP_Flag <- wine_test$Chlorides
+wine_test$FreeSulfurDioxide_IMP_Flag <- wine_test$FreeSulfurDioxide
+wine_test$TotalSulfurDioxide_IMP_Flag <- wine_test$TotalSulfurDioxide
+wine_test$pH_IMP_Flag <- wine_test$pH
+wine_test$Sulphates_IMP_Flag <- wine_test$Sulphates
+wine_test$Alcohol_IMP_Flag <- wine_test$Alcohol
+wine_test$STARS_IMP_Flag <- wine_test$STARS
+
+
+#NEW BINARY FIELDS TO SHOW na's (wine)
+wine$ResidualSugar_IMP_Flag <- ifelse(is.na(wine$ResidualSugar_IMP_Flag)==TRUE, 1,0) 
+wine$Chlorides_IMP_Flag <- ifelse(is.na(wine$Chlorides_IMP_Flag)==TRUE, 1,0)
+wine$FreeSulfurDioxide_IMP_Flag <- ifelse(is.na(wine$FreeSulfurDioxide_IMP_Flag)==TRUE, 1,0)
+wine$TotalSulfurDioxide_IMP_Flag <- ifelse(is.na(wine$TotalSulfurDioxide_IMP_Flag)==TRUE, 1,0)
+wine$pH_IMP_Flag <- ifelse(is.na(wine$pH_IMP_Flag)==TRUE, 1,0)
+wine$Sulphates_IMP_Flag <- ifelse(is.na(wine$Sulphates_IMP_Flag)==TRUE, 1,0)
+wine$Alcohol_IMP_Flag <- ifelse(is.na(wine$Alcohol_IMP_Flag)==TRUE, 1,0)
+wine$STARS_IMP_Flag <- ifelse(is.na(wine$STARS_IMP_Flag)==TRUE, 1,0) #LOOK FOR MISSING STAR OBSERVATIONS
+
+#NEW BINARY FIELDS TO SHOW na's (wine_test)
+wine_test$ResidualSugar_IMP_Flag <- ifelse(is.na(wine_test$ResidualSugar_IMP_Flag)==TRUE, 1,0) 
+wine_test$Chlorides_IMP_Flag <- ifelse(is.na(wine_test$Chlorides_IMP_Flag)==TRUE, 1,0)
+wine_test$FreeSulfurDioxide_IMP_Flag <- ifelse(is.na(wine_test$FreeSulfurDioxide_IMP_Flag)==TRUE, 1,0)
+wine_test$TotalSulfurDioxide_IMP_Flag <- ifelse(is.na(wine_test$TotalSulfurDioxide_IMP_Flag)==TRUE, 1,0)
+wine_test$pH_IMP_Flag <- ifelse(is.na(wine_test$pH_IMP_Flag)==TRUE, 1,0)
+wine_test$Sulphates_IMP_Flag <- ifelse(is.na(wine_test$Sulphates_IMP_Flag)==TRUE, 1,0)
+wine_test$Alcohol_IMP_Flag <- ifelse(is.na(wine_test$Alcohol_IMP_Flag)==TRUE, 1,0)
+wine_test$STARS_IMP_Flag <- ifelse(is.na(wine_test$STARS_IMP_Flag)==TRUE, 1,0) #LOOK FOR MISSING STAR OBSERVATIONS
+
+
+#make new indicator that indicates red vs white based on volatile acidity (wine)
+wine$VolatileAcidity_IMP_REDFLAG <- ifelse(wine$VolatileAcidity_IMP > mean(wine$VolatileAcidity_IMP),1,0)
+wine$ResidualSugar_IMP_REDFLAG <- ifelse(wine$ResidualSugar_IMP < mean(wine$ResidualSugar_IMP),1,0)
+wine$TotalSulfurDioxide_IMP_REDFLAG <- ifelse(wine$TotalSulfurDioxide_IMP < mean(wine$TotalSulfurDioxide_IMP),1,0)
+wine$Density_IMP_REDFLAG <- ifelse(wine$Density_IMP > mean(wine$Density_IMP),1,0)
+wine$TallyUp <- wine$VolatileAcidity_IMP_REDFLAG + wine$ResidualSugar_IMP_REDFLAG + wine$TotalSulfurDioxide_IMP_REDFLAG + wine$Density_IMP_REDFLAG
+wine$Final_REDFLAG <- ifelse(wine$TallyUp > mean(wine$TallyUp),1,0)
+
+#make new indicator that indicates red vs white based on volatile acidity (wine_test)
+wine_test$VolatileAcidity_IMP_REDFLAG <- ifelse(wine_test$VolatileAcidity_IMP > mean(wine_test$VolatileAcidity_IMP),1,0)
+wine_test$ResidualSugar_IMP_REDFLAG <- ifelse(wine_test$ResidualSugar_IMP < mean(wine_test$ResidualSugar_IMP),1,0)
+wine_test$TotalSulfurDioxide_IMP_REDFLAG <- ifelse(wine_test$TotalSulfurDioxide_IMP < mean(wine_test$TotalSulfurDioxide_IMP),1,0)
+wine_test$Density_IMP_REDFLAG <- ifelse(wine_test$Density_IMP > mean(wine_test$Density_IMP),1,0)
+wine_test$TallyUp <- wine_test$VolatileAcidity_IMP_REDFLAG + wine_test$ResidualSugar_IMP_REDFLAG + wine_test$TotalSulfurDioxide_IMP_REDFLAG + wine_test$Density_IMP_REDFLAG
+wine_test$Final_REDFLAG <- ifelse(wine_test$TallyUp > mean(wine_test$TallyUp),1,0)
+
+#Add Target Flag for 0 sale scenarios (wine)
+wine$TARGET_Flag <- ifelse(wine$TARGET >0,1,0)
+wine$TARGET_AMT <- wine$TARGET - 1
+wine$TARGET_AMT <- ifelse(wine$TARGET_Flag == 0,NA,wine$TARGET-1)
+
+#Add Target Flag for 0 sale scenarios (wine_test)
+wine_test$TARGET_Flag <- ifelse(wine_test$TARGET >0,1,0)
+wine_test$TARGET_AMT <- wine_test$TARGET - 1
+wine_test$TARGET_AMT <- ifelse(wine_test$TARGET_Flag == 0,NA,wine_test$TARGET-1)
+
+# Again, double-checking to make sure we don't have any NA's in our Test Data Set
+summary(wine_test)
+
+##########################################################################################
+##########################################################################################
+## CHAMPION MODEL ... ZERO INFLATED POISSON (ZIP)############################################
+##########################################################################################
+
+ZIP_Model<-zeroinfl(TARGET ~ STARS_IMP + STARS_IMP_Flag + LabelAppeal_IMP + Density_IMP +
+                      Alcohol_IMP + TotalSulfurDioxide_IMP + VolatileAcidity_IMP +
+                      TotalSulfurDioxide_IMP_REDFLAG + Density_IMP_REDFLAG + 
+                      AcidIndex_IMP, data=wine)
+
+
+wine_test$TARGET <- predict(ZIP_Model, newdata = wine_test, type = "response")
+summary(wine_test$TARGET)
+summary(wine_test)
+
+select <- dplyr::select
+
+# Scored Data File
+scores <- wine_test[c("INDEX","TARGET")]
+write.csv(scores, file = "C:\\Users\\mike\\Desktop\\Predict_411\\WineSales\\Unit3_Scored1.csv", row.names = FALSE)
+write.csv(as.data.frame(scores), file = "WINE_TEST.csv", 
+          sheetName = "Scored Data File", row.names = FALSE)
+
+
