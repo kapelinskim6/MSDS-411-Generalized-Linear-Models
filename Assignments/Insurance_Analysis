@@ -1,0 +1,341 @@
+-*- R -*-
+# Mike Kapelinski
+# Predict 411-57
+# Insurance Analysis 
+
+
+
+# Some other R Packages to try.
+# MICE (and VIM) [for imputation - note they may take a long time to run]
+# randomForest [random forest algorithm for classification/regression]
+# rpart, rattle, party [decision trees]
+# ROCR [allowing you to compute ROC curves, etc.]
+# MASS [allows for stepwise variable selection for BIC, AIC, etc.]
+
+# Note, some of these libraries are not needed for this template code.
+library(readr)
+library(dplyr)
+library(zoo)
+library(psych)
+library(pillar)
+library(corrplot)
+library(car)
+library(InformationValue)
+library(rJava)
+library(pbkrtest)
+library(car)
+library(leaps)
+library(MASS)
+library(corrplot)
+library(psych)
+library(pastecs)
+library(rpart)
+library(MASS)
+library(randomForest)
+library(rpart.plot)
+library(party)
+library(pROC)
+
+path.name <- 'C:\\Users\\mike\\Desktop\\Predict_411\\Insurance\\';
+file.name <- paste(path.name, 'logit_insurance.csv',sep='');
+data <- read.csv(file.name, header=TRUE);
+
+data$INDEX <- as.factor(data$INDEX)
+data$TARGET_FLAG <- as.factor(data$TARGET_FLAG)
+data$SEX <- as.factor(data$SEX)
+data$EDUCATION <- as.factor(data$EDUCATION)
+data$PARENT1 <- as.factor(data$PARENT1)
+data$INCOME <- suppressWarnings(as.numeric(gsub("[^0-9.]", "", data$INCOME)))
+
+data$HOME_VAL <- suppressWarnings(as.numeric(gsub("[^0-9.]", "", data$HOME_VAL)))
+data$MSTATUS <- as.factor(data$MSTATUS)
+data$REVOKED <- as.factor(data$REVOKED)
+data$RED_CAR <- as.factor(ifelse(data$RED_CAR=="yes", 1, 0))
+data$URBANICITY <- ifelse(data$URBANICITY == "Highly Urban/ Urban", "Urban", "Rural")
+data$URBANICITY <- as.factor(data$URBANICITY)
+data$JOB <- as.factor(data$JOB)
+data$CAR_USE <- as.factor(data$CAR_USE)
+data$CAR_TYPE <- as.factor(data$CAR_TYPE)
+data$DO_KIDS_DRIVE <- as.factor(ifelse(data$KIDSDRIV > 0, 1, 0 ))
+data$OLDCLAIM <- suppressWarnings(as.numeric(gsub("[^0-9.]", "", data$OLDCLAIM)))
+data$BLUEBOOK <- suppressWarnings(as.numeric(gsub("[^0-9.]", "", data$BLUEBOOK)))
+summary(data)
+str(data)
+
+######## Same treatment on test data set ###########################
+
+### Need to make sure our data is understood correctly by R, since we have a mix of numerical and categorical
+
+path.name <- 'C:\\Users\\mike\\Desktop\\Predict_411\\Insurance\\';
+file.name <- paste(path.name, 'logit_insurance_test.csv',sep='');
+test <- read.csv(file.name, header=TRUE);
+
+
+test$INDEX <- as.factor(test$INDEX)
+test$TARGET_FLAG <- as.factor(test$TARGET_FLAG)
+test$SEX <- as.factor(test$SEX)
+test$EDUCATION <- as.factor(test$EDUCATION)
+test$PARENT1 <- as.factor(test$PARENT1)
+test$INCOME <- suppressWarnings(as.numeric(gsub("[^0-9.]", "", test$INCOME)))
+test$HOME_VAL <- suppressWarnings(as.numeric(gsub("[^0-9.]", "", test$HOME_VAL)))
+test$MSTATUS <- as.factor(test$MSTATUS)
+test$REVOKED <- as.factor(test$REVOKED)
+test$RED_CAR <- as.factor(ifelse(test$RED_CAR=="yes", 1, 0))
+test$URBANICITY <- ifelse(test$URBANICITY == "Highly Urban/ Urban", "Urban", "Rural")
+test$URBANICITY <- as.factor(test$URBANICITY)
+test$JOB <- as.factor(test$JOB)
+test$CAR_USE <- as.factor(test$CAR_USE)
+test$CAR_TYPE <- as.factor(test$CAR_TYPE)
+test$DO_KIDS_DRIVE <- as.factor(ifelse(test$KIDSDRIV > 0, 1, 0 ))
+test$OLDCLAIM <- suppressWarnings(as.numeric(gsub("[^0-9.]", "", test$OLDCLAIM)))
+test$BLUEBOOK <- suppressWarnings(as.numeric(gsub("[^0-9.]", "", test$BLUEBOOK)))
+summary(test)
+
+#################### Part 1: Data Exploration ##############################################
+# Histograms for Numeric Variables
+str(data0)
+par(mfrow=c(2,2))
+hist(data$AGE, col = "darkred", xlab = "Age", main = "AGE Hist")
+data0<- subset(data, TARGET_FLAG == 1 )
+hist(log(data0$TARGET_AMT), col = "darkgreen", xlab = "Log TARGET_AMT", main = "Log TARGET_AMT Hist")
+boxplot(data$AGE, col = "darkred", main = "AGE BoxPlot")
+boxplot(log(data0$TARGET_AMT), col = "darkgreen", main = "LOG TARGET_AMT Boxplot")
+par(mfrow=c(1,1))
+mean(data0$TARGET_AMT)
+par(mfrow=c(2,2))
+hist(data$TRAVTIME, col = "darkgreen", xlab = "SQRT TRAVTIME", main = "SQRT TRAVTIME Hist")
+hist(data$YOJ, col = "darkblue", xlab = "YOJ", main = "YOJ Hist")
+boxplot(data$TRAVTIME, col = "darkgreen", main = "SQRT TRAVTIME BoxPlot")
+boxplot(data$YOJ, col = "darkblue", main = "YOJ BoxPlot")
+par(mfrow=c(1,1))
+
+par(mfrow=c(2,2))
+hist(sqrt(data$BLUEBOOK), col = "darkgreen", xlab = "SQRT BLUEBOOK", main = "SQRT BLUEBOOK Hist")
+hist((data$TIF), col = "darkblue", xlab = "TIF", main = "TIF Hist")
+boxplot(sqrt(data$BLUEBOOK), col = "darkgreen", main = "SQRT BLUEBOOK BoxPlot")
+boxplot(data$TIF, col = "darkblue", main = "TIF BoxPlot")
+par(mfrow=c(1,1))
+
+par(mfrow=c(2,2))
+hist(data$MVR_PTS, col = "red", xlab = "MVR_PTS", main = "MVR_PTS Hist")
+hist(data$CAR_AGE, col = "blue", xlab = "CAR_AGE", main = "CAR_AGE Hist")
+boxplot(data$MVR_PTS, col = "red", main = "MVR_PTS BoxPlot")
+boxplot(data$CAR_AGE, col = "blue", xlab = "CAR_AGE", main = "CAR_AGE BoxPlot")
+par(mfrow=c(1,1))
+
+par(mfrow=c(1,2))
+boxplot(sqrt(data$BLUEBOOK), col = "darkgreen", main = "SQRT BLUEBOOK BoxPlot")
+boxplot(data$OLDCLAIM, col = "darkblue", main = "Old Claim Boxplot")
+par(mfrow=c(1,1))
+
+par(mfrow=c(1,2))
+boxplot(data$CAR_AGE, col = "darkgreen", main = "CAR AGE BoxPlot")
+boxplot(data$HOME_VAL, col = "darkblue", main = "HOME_VAL Boxplot")
+par(mfrow=c(1,1))
+
+
+
+########### Part 2: Data Transformation ##################
+# Fix NA's, note car age
+data$AGE[is.na(data$AGE)] <- mean(data$AGE, na.rm = "TRUE")
+data$YOJ <- na.aggregate(data$YOJ, data$JOB, mean, na.rm = TRUE)
+data$INCOME <- na.aggregate(data$INCOME, data$JOB, mean, na.rm = TRUE)
+data$HOME_VAL <- na.aggregate(data$HOME_VAL, data$JOB, mean, na.rm = TRUE )
+data$CAR_AGE <- na.aggregate(data$CAR_AGE, data$CAR_TYPE, mean, na.rm = TRUE)
+data$CAR_AGE[data$CAR_AGE < 0 ] <- 3 
+data$OLDCLAIM <- ifelse(data$CAR_AGE < 5 & !is.na(data$CAR_AGE),0,data$OLDCLAIM)
+data$OLDCLAIM <- na.aggregate(data$OLDCLAIM, data$CAR_AGE, mean, na.rm = TRUE )
+data$HOME_OWNER <- ifelse(data$HOME_VAL == 0, 0, 1)
+data$SQRT_TRAVTIME <- sqrt(data$TRAVTIME)
+data$SQRT_BLUEBOOK <- sqrt(data$BLUEBOOK)
+data$log_TARGET_AMT = log10(data$TARGET_AMT)
+data$log_TARGET_AMT[data$log_TARGET_AMT < 0 ] = 0
+
+# Truncate extreme values 99th percentile
+data$AGE[(data$AGE > 64)] = 64
+data$HOME_VAL[(data$HOME_VAL > 500309)] = 500309
+data$TRAVTIME[(data$TRAVTIME > 75)] = 75
+data$TIF[(data$TIF > 17)] = 17
+data$BLUEBOOK[(data$BLUEBOOK > 39090)] = 39090
+data$OLDCLAIM[(data$OLDCLAIM > 42820)] = 42820
+data$CAR_AGE[(data$CAR_AGE > 21)] = 21
+data$MVR_PTS[(data$MVR_PTS > 8)] = 8
+data$YOJ[(data$YOJ > 17)] = 17
+data$KIDSDRIV[(data$KIDSDRIV > 2)] = 2
+
+# Bin Income
+data$INCOME_bin[is.na(data$INCOME)] <- "NA"
+data$INCOME_bin[data$INCOME == 0] <- "Zero"
+data$INCOME_bin[data$INCOME >= 1 & data$INCOME < 30000] <- "Low"
+data$INCOME_bin[data$INCOME >= 30000 & data$INCOME < 80000] <- "Medium"
+data$INCOME_bin[data$INCOME >= 80000] <- "High"
+data$INCOME_bin <- factor(data$INCOME_bin)
+data$INCOME_bin <- factor(data$INCOME_bin, levels=c("NA","Zero","Low","Medium","High"))
+
+test$AGE[is.na(test$AGE)] <- mean(test$AGE, na.rm = "TRUE")
+test$YOJ <- na.aggregate(test$YOJ, test$JOB, mean, na.rm = TRUE)
+test$INCOME <- na.aggregate(test$INCOME, test$JOB, mean, na.rm = TRUE)
+test$HOME_VAL <- na.aggregate(test$HOME_VAL, test$JOB, mean, na.rm = TRUE )
+test$CAR_AGE <- na.aggregate(test$CAR_AGE, test$CAR_TYPE, mean, na.rm = TRUE)
+test$CAR_AGE[test$CAR_AGE < 0 ] <- 3
+test$OLDCLAIM <- ifelse(test$CAR_AGE < 5 & !is.na(test$CAR_AGE),0,test$OLDCLAIM)
+test$OLDCLAIM <- na.aggregate(test$OLDCLAIM, test$CAR_AGE, mean, na.rm = TRUE )
+test$HOME_OWNER <- ifelse(test$HOME_VAL == 0, 0, 1)
+test$SQRT_TRAVTIME <- sqrt(test$TRAVTIME)
+test$SQRT_BLUEBOOK <- sqrt(test$BLUEBOOK)
+
+# Bin Income
+test$INCOME_bin[is.na(test$INCOME)] <- "NA"
+test$INCOME_bin[test$INCOME == 0] <- "Zero"
+test$INCOME_bin[test$INCOME >= 1 & test$INCOME < 30000] <- "Low"
+test$INCOME_bin[test$INCOME >= 30000 & test$INCOME < 80000] <- "Medium"
+test$INCOME_bin[test$INCOME >= 80000] <- "High"
+test$INCOME_bin <- factor(test$INCOME_bin)
+test$INCOME_bin <- factor(test$INCOME_bin, levels=c("NA","Zero","Low","Medium","High"))
+
+summary(data)
+summary(test)
+
+
+
+subjective <- subset(data, select = c( SQRT_TRAVTIME, INCOME_bin,
+                                       SQRT_BLUEBOOK, TIF, EDUCATION, CAR_TYPE, JOB, HOME_VAL,
+                                       CAR_USE, MSTATUS, PARENT1, REVOKED, URBANICITY,
+                                       OLDCLAIM, KIDSDRIV,CLM_FREQ, MVR_PTS), na.rm = TRUE)
+
+
+
+amt_var <- subset(data, select = c(TARGET_AMT, AGE,  HOMEKIDS, INCOME_bin, HOME_VAL, SQRT_TRAVTIME, SQRT_BLUEBOOK, CAR_TYPE, 
+                                      RED_CAR, REVOKED, URBANICITY, CAR_USE, SEX,
+                                      OLDCLAIM, CLM_FREQ, MVR_PTS, CAR_AGE), na.rm = TRUE)
+
+numeric <- subset(data, select = c( TARGET_AMT, AGE, HOMEKIDS, YOJ, INCOME, HOME_VAL, TRAVTIME, BLUEBOOK, TIF,
+                       OLDCLAIM,KIDSDRIV,CLM_FREQ, MVR_PTS, CAR_AGE), na.rm = TRUE)
+
+amt <- subset(data, select = c( TARGET_AMT, AGE, INCOME_bin, SQRT_TRAVTIME, SQRT_BLUEBOOK, HOME_VAL,
+                                    OLDCLAIM,KIDSDRIV,CLM_FREQ, MVR_PTS, CAR_AGE), na.rm = TRUE)
+describe(data$TOTAL_AMT)
+c <- cor(numeric)
+corrplot(c, method = "square")
+
+
+############# Part 3: Model Development ######################
+mse <- function(sm) 
+  mean(sm$residuals^2)
+#Model Development for TARGET_AMT
+
+upper.lm <- lm(TARGET_AMT~ .,data= subjective);
+
+Step_model_lm <- lm(TARGET_AMT ~ AGE  ,data=subjective);
+summary(Step_model_lm)
+
+stepwise_model_lm <- stepAIC(object=Step_model_lm,scope=list(upper=formula(upper.lm),lower=~1),
+                          direction=c('both'));
+summary(stepwise_model_lm)
+
+AIC(stepwise_model_lm)
+summary(stepwise_model_lm)
+
+mse(stepwise_model_lm)
+data$stepwise_model_lm <- predict(stepwise_model_lm , type = "response")
+mean(data$stepwise_model_lm)
+
+#Model Development for TARGET_FLAG
+total_model = glm(TARGET_FLAG ~ AGE  +  PARENT1 + TIF + CAR_AGE  + INCOME_bin + HOME_VAL + MSTATUS + SEX  + CAR_TYPE +
+  RED_CAR + CAR_USE + SQRT_TRAVTIME + SQRT_BLUEBOOK  + EDUCATION + JOB + URBANICITY + OLDCLAIM + KIDSDRIV + CLM_FREQ + HOMEKIDS +
+            REVOKED + MVR_PTS+ YOJ, data = data, family = binomial())
+
+summary(total_model)
+data$total_modelPrediction <- predict(total_model, type = "response")
+mean(data$total_modelPrediction)
+
+
+# Model 2 Subjective model 
+Subjective_model <- glm(TARGET_FLAG ~ AGE + SQRT_TRAVTIME + KIDSDRIV + SEX +  URBANICITY + YOJ +
+                CLM_FREQ + REVOKED + MVR_PTS + TIF + EDUCATION + MSTATUS  + CAR_USE +  JOB + 
+                INCOME_bin + OLDCLAIM, data = data, family = binomial())
+
+summary(Subjective_model)
+data$Subjective_modelPrediction <- predict(Subjective_model , type = "response")
+mean(data$Subjective_modelPrediction)
+
+# Model 3 Stepwise model 
+upper.glm <- glm(TARGET_FLAG ~ .,data=subjective, family = binomial());
+
+Step_model <- glm(TARGET_FLAG ~ AGE  ,data=subjective, family = binomial());
+summary(Step_model)
+
+stepwise_model <- stepAIC(object=Step_model,scope=list(upper=formula(upper.glm),lower=~1),
+                          direction=c('both'));
+summary(stepwise_model)
+data$stepwise_modelPrediction <- predict(stepwise_model, type = "response")
+mean(data$stepwise_modelPrediction)
+
+
+mod3 <- glm(TARGET_FLAG ~  SQRT_TRAVTIME + INCOME_bin +
+            SQRT_BLUEBOOK + TIF + EDUCATION + CAR_TYPE + JOB + HOME_VAL +
+            CAR_USE + MSTATUS + PARENT1 + REVOKED + URBANICITY +
+            OLDCLAIM + KIDSDRIV + CLM_FREQ + MVR_PTS,  data = data, family = binomial())
+
+summary(mod3)
+data$Subjective_modelPrediction <- predict(Subjective_model , type = "response")
+mean(data$Subjective_modelPrediction)
+
+
+r = plot(roc(data$TARGET_FLAG, data$stepwise_model, direction="<"),
+     col="darkblue", lwd=3, print.auc=TRUE, legacy.axes = TRUE, main="ROC Curve Step Model")
+auc(r)
+
+s = plot(roc(data$TARGET_FLAG, data$Subjective_model, direction="<"),
+         col="darkblue", lwd=3, print.auc=TRUE, legacy.axes = TRUE, main="ROC Curve Subjective Model")
+auc(s)
+
+t = plot(roc(data$TARGET_FLAG, data$total_model, direction="<"),
+         col="darkblue", lwd=3, print.auc=TRUE, legacy.axes = TRUE, main="ROC Curve Total Model")
+auc(t)
+###
+### Note, we will need to build a quick model for TARGET_AMT.  Perhaps using just a generic multiple linear regression.
+###
+
+########## Part 4: Model Selection 
+AIC(total_model)
+BIC(total_model)
+AIC(Subjective_model)
+BIC(Subjective_model)
+AIC(stepwise_model)
+BIC(stepwise_model)
+print(-2*logLik(total_model, REML = TRUE))
+print(-2*logLik(Subjective_model, REML = TRUE))
+print(-2*logLik(stepwise_model, REML = TRUE))
+ks_stat(actuals=data$TARGET_FLAG, predictedScores=data$total_modelPrediction)
+ks_stat(actuals=data$TARGET_FLAG, predictedScores=data$Subjective_modelPrediction)
+ks_stat(actuals=data$TARGET_FLAG, predictedScores=data$stepwise_modelPrediction)
+
+# We'll choose Model 3, here are its coefficients
+coef(stepwise_model)
+
+#### Part 5:  Score Model on Test Data set and output csv file
+
+# Again, double-checking to make sure we don't have any NA's in our Test Data Set
+summary(test)
+
+########### STAND ALONE SCORING PROGRAM ###############
+##### Model coefficients used to create P_TARGET_FLAG, Mean TARGET_AMT aggregated by CAR was used to predict
+######## P-TARGET AMOUNT
+######## Note that you may want to do a multiple linear regression for this model.
+######## The model below is based on CAR multiplied by the amount and probability of a claim (27%)
+test$P_TARGET_FLAG <- predict(mod3 , newdata = test, type = "response")
+targetbycar <- aggregate(data0$TARGET_AMT, list(data0$CAR_TYPE), mean)
+test$P_TARGET_AMT <- ifelse(test$CAR_TYPE=="Minivan", 5601.665%*%.2716667,
+                            ifelse(test$CAR_TYPE=="Panel Truck", 7464.703%*%.2716667,
+                                   ifelse(test$CAR_TYPE=="Pickup", 5430.106%*%.2716667,
+                                          ifelse(test$CAR_TYPE=="Sports Car", 5412.733%*%.2716667,
+                                                 ifelse(test$CAR_TYPE=="Van", 6908.553%*%.2716667, 5241.104%*%.2716667)))))
+                                        
+                            
+mean(test$P_TARGET_AMT)
+mean(test$P_TARGET_FLAG)
+# Scored Data File
+scores <- test[c("INDEX","P_TARGET_FLAG", "P_TARGET_AMT")]
+write.csv(scores, file ="C:\\Users\\mike\\Desktop\\Predict_411\\Insurance\\CI_Scored.csv")
+write.csv(as.data.frame(scores), file = "C:\\Users\\mike\\Desktop\\Predict_411\\Insurance\\model.csv") 
