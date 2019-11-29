@@ -4,8 +4,7 @@
 # Insurance Analysis 
 
 
-
-# Some other R Packages to try.
+# Helpful Packages
 # MICE (and VIM) [for imputation - note they may take a long time to run]
 # randomForest [random forest algorithm for classification/regression]
 # rpart, rattle, party [decision trees]
